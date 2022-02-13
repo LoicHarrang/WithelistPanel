@@ -1,0 +1,9 @@
+/* TEAM */
+Developer: Loic Shmit & Sharywan
+Destinataire: Arma 3 Frontière
+
+/* SITE */
+Last update: 2020/02
+Standards: HTML5, CSS3
+Components: Materializecss, Vue, jQuery, Moment.js, Clipboard.js
+IDE: PhPStorm

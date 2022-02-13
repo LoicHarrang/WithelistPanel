@@ -1,0 +1,82 @@
+image: lorisleiva/laravel-docker:latest
+
+.init_ssh: &init_ssh |
+  eval $(ssh-agent -s)
+  echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add - > /dev/null
+  mkdir -p ~/.ssh
+  chmod 700 ~/.ssh
+  [[ -f /.dockerenv ]] && echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config
+  
+.change_file_permissions: &change_file_permissions |
+  find . -type f -not -path "./vendor/*" -exec chmod 664 {} \;    
+  find . -type d -not -path "./vendor/*" -exec chmod 775 {} \;
+    
+composer:
+  stage: build
+  cache:
+    key: ${CI_COMMIT_REF_SLUG}-composer
+    paths:
+      - vendor/
+  script:
+      - composer install --prefer-dist --no-ansi --no-interaction --no-progress --no-scripts
+      - cp .env.example .env
+      - php artisan key:generate
+  artifacts:
+    expire_in: 1 month
+    paths:
+      - vendor/
+      - .env
+
+npm:
+  stage: build
+  cache:
+    key: ${CI_COMMIT_REF_SLUG}-npm
+    paths:
+      - node_modules/
+  script:
+      - npm install
+      - npm run production
+  artifacts:
+    expire_in: 1 month
+    paths:
+      - node_modules/
+      - public/css/
+      - public/js/
+
+codestyle:
+  stage: test
+  dependencies: []
+  script:
+    - phpcs --standard=PSR2 --extensions=php --ignore=app/Support/helpers.php app
+    
+phpunit:
+  stage: test
+  dependencies:
+    - composer
+  script:
+    - phpunit --coverage-text --colors=never
+
+staging:
+  stage: deploy
+  script:
+    - *init_ssh
+    - *change_file_permissions
+    - php artisan deploy dash.arma3frontiere.fr -s upload
+  environment:
+    name: staging
+    url: https://dash.arma3frontiere.fr
+  only:
+    - master
+  
+production:
+  stage: deploy
+  script:
+    - *init_ssh
+    - *change_file_permissions
+    - php artisan deploy dash.arma3frontiere.fr -s upload
+  environment:
+    name: dev
+    url: https://dash.arma3frontiere.fr
+  when: manual
+  only:
+   - master
